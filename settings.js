@@ -56,13 +56,10 @@ async function performSearch() {
 
     const tracked = new Set((storageGet("stationIds") || []).map(String));
 
+    // Render results immediately with addresses
     searchResults.innerHTML = "";
-    // Fetch station names in parallel
-    const names = await Promise.all(stations.map(s => fetchStationName(s.id)));
-
-    for (let i = 0; i < stations.length; i++) {
-      const station = stations[i];
-      const name = names[i];
+    const items = [];
+    for (const station of stations) {
       const id = String(station.id);
       const alreadyTracked = tracked.has(id);
 
@@ -72,13 +69,13 @@ async function performSearch() {
       const fuels = FUEL_KEYS
         .filter(k => station[`${k}_prix`] != null)
         .map(k => `${FUEL_TYPES[k].label}: ${formatPrice(station[`${k}_prix`])}`)
-        .join(" · ");
+        .join(" \u00B7 ");
 
       item.innerHTML = `
         <div class="station-info">
-          ${name ? `<div class="station-name">${escapeHtml(name)}</div>` : ""}
-          <div class="${name ? "station-detail" : "station-name"}">${escapeHtml(station.adresse || "\u2014")}</div>
-          <div class="station-detail">${escapeHtml(station.cp || "")} ${escapeHtml(station.ville || "")} · ID: ${id}</div>
+          <div class="station-name" data-name-slot="${id}">${escapeHtml(station.adresse || "\u2014")}</div>
+          <div class="station-detail" data-addr-slot="${id}" style="display:none"></div>
+          <div class="station-detail">${escapeHtml(station.cp || "")} ${escapeHtml(station.ville || "")} \u00B7 ID: ${id}</div>
           <div class="station-detail">${fuels || "Aucun prix disponible"}</div>
         </div>
       `;
@@ -87,10 +84,32 @@ async function performSearch() {
       btn.className = "add-btn";
       btn.textContent = alreadyTracked ? "Ajoutee" : "Ajouter";
       btn.disabled = alreadyTracked;
-      btn.addEventListener("click", () => addStation(id, btn, name));
+      btn.addEventListener("click", () => {
+        const nameEl = item.querySelector(`[data-name-slot="${id}"]`);
+        const resolvedName = nameEl?.dataset.resolvedName || null;
+        addStation(id, btn, resolvedName);
+      });
       item.appendChild(btn);
 
       searchResults.appendChild(item);
+      items.push({ id, station, item });
+    }
+
+    // Load names in background (non-blocking)
+    for (const { id, station, item } of items) {
+      fetchStationName(id).then(name => {
+        if (!name) return;
+        const nameSlot = item.querySelector(`[data-name-slot="${id}"]`);
+        const addrSlot = item.querySelector(`[data-addr-slot="${id}"]`);
+        if (nameSlot) {
+          nameSlot.textContent = name;
+          nameSlot.dataset.resolvedName = name;
+        }
+        if (addrSlot) {
+          addrSlot.textContent = station.adresse || "";
+          addrSlot.style.display = "";
+        }
+      });
     }
   } catch (err) {
     searchResults.innerHTML = `<p class="status-msg error">Erreur : ${escapeHtml(err.message)}</p>`;
@@ -113,11 +132,20 @@ addByIdBtn.addEventListener("click", async () => {
       showStatus(addByIdStatus, "Station introuvable.", "error");
       return;
     }
-    const name = await fetchStationName(id);
-    addStationId(id, name);
-    showStatus(addByIdStatus, `Station ajoutee : ${name || station.adresse || station.ville || id}`, "success");
+    addStationId(id);
+    showStatus(addByIdStatus, `Station ajoutee : ${station.adresse || station.ville || id}`, "success");
     stationIdInput.value = "";
     renderTrackedStations();
+
+    // Try to fetch name in background
+    fetchStationName(id).then(name => {
+      if (name) {
+        const names = storageGet("stationNames") || {};
+        names[String(id)] = name;
+        storageSet("stationNames", names);
+        renderTrackedStations();
+      }
+    });
   } catch (err) {
     showStatus(addByIdStatus, `Erreur : ${err.message}`, "error");
   } finally {
@@ -187,7 +215,7 @@ function renderTrackedStations() {
       <div class="station-info">
         ${name ? `<div class="station-name">${escapeHtml(name)}</div>` : ""}
         <div class="${name ? "station-detail" : "station-name"}">${escapeHtml(station?.adresse || `Station ${id}`)}</div>
-        <div class="station-detail">${escapeHtml(station?.cp || "")} ${escapeHtml(station?.ville || "")} · ID: ${id}</div>
+        <div class="station-detail">${escapeHtml(station?.cp || "")} ${escapeHtml(station?.ville || "")} \u00B7 ID: ${id}</div>
       </div>
     `;
 
