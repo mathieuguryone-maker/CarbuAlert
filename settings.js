@@ -1,4 +1,4 @@
-import { searchStations, fetchSingleStation } from "./api.js";
+import { searchStations, fetchSingleStation, fetchStationName } from "./api.js";
 import {
   FUEL_TYPES, FUEL_KEYS, formatPrice, DEFAULT_SETTINGS,
   storageGet, storageSet, storageRemove, escapeHtml
@@ -57,7 +57,12 @@ async function performSearch() {
     const tracked = new Set((storageGet("stationIds") || []).map(String));
 
     searchResults.innerHTML = "";
-    for (const station of stations) {
+    // Fetch station names in parallel
+    const names = await Promise.all(stations.map(s => fetchStationName(s.id)));
+
+    for (let i = 0; i < stations.length; i++) {
+      const station = stations[i];
+      const name = names[i];
       const id = String(station.id);
       const alreadyTracked = tracked.has(id);
 
@@ -71,7 +76,8 @@ async function performSearch() {
 
       item.innerHTML = `
         <div class="station-info">
-          <div class="station-name">${escapeHtml(station.adresse || "\u2014")}</div>
+          ${name ? `<div class="station-name">${escapeHtml(name)}</div>` : ""}
+          <div class="${name ? "station-detail" : "station-name"}">${escapeHtml(station.adresse || "\u2014")}</div>
           <div class="station-detail">${escapeHtml(station.cp || "")} ${escapeHtml(station.ville || "")} · ID: ${id}</div>
           <div class="station-detail">${fuels || "Aucun prix disponible"}</div>
         </div>
@@ -81,7 +87,7 @@ async function performSearch() {
       btn.className = "add-btn";
       btn.textContent = alreadyTracked ? "Ajoutee" : "Ajouter";
       btn.disabled = alreadyTracked;
-      btn.addEventListener("click", () => addStation(id, btn));
+      btn.addEventListener("click", () => addStation(id, btn, name));
       item.appendChild(btn);
 
       searchResults.appendChild(item);
@@ -107,8 +113,9 @@ addByIdBtn.addEventListener("click", async () => {
       showStatus(addByIdStatus, "Station introuvable.", "error");
       return;
     }
-    addStationId(id);
-    showStatus(addByIdStatus, `Station ajoutee : ${station.adresse || station.ville || id}`, "success");
+    const name = await fetchStationName(id);
+    addStationId(id, name);
+    showStatus(addByIdStatus, `Station ajoutee : ${name || station.adresse || station.ville || id}`, "success");
     stationIdInput.value = "";
     renderTrackedStations();
   } catch (err) {
@@ -119,18 +126,21 @@ addByIdBtn.addEventListener("click", async () => {
 });
 
 // --- Add / remove stations ---
-function addStation(id, btn) {
+function addStation(id, btn, name) {
   btn.disabled = true;
   btn.textContent = "Ajoutee";
-  addStationId(id);
+  addStationId(id, name);
   renderTrackedStations();
 }
 
-function addStationId(id) {
+function addStationId(id, name) {
   const ids = storageGet("stationIds") || [];
+  const names = storageGet("stationNames") || {};
   if (!ids.map(String).includes(String(id))) {
     ids.push(Number(id));
+    if (name) names[String(id)] = name;
     storageSet("stationIds", ids);
+    storageSet("stationNames", names);
   }
 }
 

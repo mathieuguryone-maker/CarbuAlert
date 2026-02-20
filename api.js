@@ -52,3 +52,19 @@ export async function fetchSingleStation(id) {
   });
   return (data.results && data.results[0]) || null;
 }
+
+/**
+ * Fetch station name (enseigne) via CORS proxy.
+ */
+export async function fetchStationName(id) {
+  try {
+    const targetUrl = `https://www.prix-carburants.gouv.fr/station/${id}`;
+    const response = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`);
+    if (!response.ok) return null;
+    const html = await response.text();
+    const match = html.match(/<p\s+class="fr-h2[^"]*">([^<]+)<\/p>/i);
+    return match ? match[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
