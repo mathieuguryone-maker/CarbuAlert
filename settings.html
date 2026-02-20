@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a73e8">
+  <title>Carbu Alert - Parametres</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="header">
+    <h1><a href="index.html" class="back-link" style="color:#fff;text-decoration:none;">&larr;</a> Parametres</h1>
+  </div>
+
+  <div class="container">
+    <!-- Search -->
+    <section class="section">
+      <h2>Rechercher une station</h2>
+      <div class="search-row">
+        <select id="searchType">
+          <option value="ville">Ville</option>
+          <option value="cp">Code postal</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="Ex : Paris ou 75015" enterkeyhint="search">
+        <button id="searchBtn">Rechercher</button>
+      </div>
+      <div id="searchResults" class="results-list"></div>
+    </section>
+
+    <!-- Add by ID -->
+    <section class="section">
+      <h2>Ajouter par ID</h2>
+      <div class="search-row">
+        <input type="text" id="stationIdInput" inputmode="numeric" placeholder="ID station (ex : 75015011)">
+        <button id="addByIdBtn">Ajouter</button>
+      </div>
+      <div id="addByIdStatus" class="status-msg"></div>
+    </section>
+
+    <!-- Tracked stations -->
+    <section class="section">
+      <h2>Stations suivies</h2>
+      <div id="trackedStations" class="tracked-list">
+        <p class="empty-msg">Aucune station suivie</p>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="section">
+      <h2>Preferences</h2>
+      <div class="setting-row">
+        <label for="badgeFuel">Carburant principal</label>
+        <select id="badgeFuel">
+          <option value="gazole">Gazole</option>
+          <option value="sp95">SP95</option>
+          <option value="sp98">SP98</option>
+          <option value="e10">E10</option>
+          <option value="e85">E85</option>
+          <option value="gplc">GPLc</option>
+        </select>
+      </div>
+      <button id="saveSettingsBtn">Enregistrer</button>
+      <div id="settingsStatus" class="status-msg"></div>
+    </section>
+  </div>
+
+  <script type="module" src="settings.js"></script>
+</body>
+</html>

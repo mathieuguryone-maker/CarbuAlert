@@ -1,0 +1,9 @@
+{
+  "stationIds": [75015011],
+  "stationNames": {
+    "75015011": "Ma station"
+  },
+  "referenceStationId": null,
+  "badgeFuelType": "gazole",
+  "checkIntervalMinutes": 10
+}
