@@ -19,7 +19,9 @@ export function formatPrice(price) {
 
 export function formatDate(dateStr) {
   if (!dateStr) return "\u2014";
-  const date = new Date(dateStr);
+  // L'API gouv stocke l'heure française avec un offset +00:00 erroné.
+  const cleaned = String(dateStr).replace(/[+-]\d{2}:\d{2}$/, "").replace(/Z$/, "");
+  const date = new Date(cleaned);
   if (isNaN(date.getTime())) return "\u2014";
   return date.toLocaleDateString("fr-FR", {
     day: "2-digit",
