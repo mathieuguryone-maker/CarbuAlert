@@ -55,16 +55,25 @@ export async function fetchSingleStation(id) {
 
 /**
  * Fetch station name (enseigne) via CORS proxy.
+ * Tries multiple proxies for Safari/iOS compatibility.
  */
 export async function fetchStationName(id) {
-  try {
-    const targetUrl = `https://www.prix-carburants.gouv.fr/station/${id}`;
-    const response = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`);
-    if (!response.ok) return null;
-    const html = await response.text();
-    const match = html.match(/<p\s+class="fr-h2[^"]*">([^<]+)<\/p>/i);
-    return match ? match[1].trim() : null;
-  } catch {
-    return null;
+  const targetUrl = `https://www.prix-carburants.gouv.fr/station/${id}`;
+  const proxies = [
+    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`
+  ];
+
+  for (const proxy of proxies) {
+    try {
+      const response = await fetch(proxy(targetUrl));
+      if (!response.ok) continue;
+      const html = await response.text();
+      const match = html.match(/<p\s+class="fr-h2[^"]*">([^<]+)<\/p>/i);
+      if (match) return match[1].trim();
+    } catch {
+      // Try next proxy
+    }
   }
+  return null;
 }
