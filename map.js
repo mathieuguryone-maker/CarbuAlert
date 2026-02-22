@@ -48,8 +48,11 @@ function initMap() {
     const station = stationData[idStr];
     if (!station) continue;
 
-    const lat = parseFloat(station.latitude);
-    const lng = parseFloat(station.longitude);
+    // Coordinates are in station.geom (not latitude/longitude which are scaled)
+    const geom = station.geom;
+    if (!geom || geom.lat == null || geom.lon == null) continue;
+    const lat = parseFloat(geom.lat);
+    const lng = parseFloat(geom.lon);
     if (isNaN(lat) || isNaN(lng)) continue;
 
     const isRef = idStr === refIdStr;
