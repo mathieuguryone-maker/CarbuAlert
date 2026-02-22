@@ -1,4 +1,4 @@
-import { searchStations, fetchSingleStation } from "./api.js";
+import { searchStations, fetchSingleStation, fetchStationName } from "./api.js";
 import {
   FUEL_TYPES, FUEL_KEYS, formatPrice, DEFAULT_SETTINGS,
   storageGet, storageSet, storageRemove, escapeHtml
@@ -27,6 +27,7 @@ let debounceTimer = null;
 document.addEventListener("DOMContentLoaded", () => {
   loadSettings();
   renderTrackedStations();
+  autoFetchMissingNames();
 });
 
 // --- Search ---
@@ -69,6 +70,9 @@ async function performSearch() {
         .map(k => `${FUEL_TYPES[k].label}: ${formatPrice(station[`${k}_prix`])}`)
         .join(" \u00B7 ");
 
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "station-name-label";
+
       item.innerHTML = `
         <div class="station-info">
           <div class="station-name">${escapeHtml(station.adresse || "\u2014")}</div>
@@ -77,14 +81,26 @@ async function performSearch() {
         </div>
       `;
 
+      // Insert name label before address (best-effort, loaded async)
+      const infoDiv = item.querySelector(".station-info");
+      infoDiv.prepend(nameSpan);
+
       const btn = document.createElement("button");
       btn.className = "add-btn";
       btn.textContent = alreadyTracked ? "Ajoutee" : "Ajouter";
       btn.disabled = alreadyTracked;
-      btn.addEventListener("click", () => addStation(id, btn));
+      btn.addEventListener("click", () => addStation(id, btn, nameSpan.textContent || null));
       item.appendChild(btn);
 
       searchResults.appendChild(item);
+
+      // Best-effort: fetch station name in background
+      fetchStationName(id).then(name => {
+        if (name) {
+          nameSpan.textContent = name;
+          nameSpan.className = "station-name";
+        }
+      }).catch(() => {});
     }
   } catch (err) {
     searchResults.innerHTML = `<p class="status-msg error">Erreur : ${escapeHtml(err.message)}</p>`;
@@ -107,8 +123,11 @@ addByIdBtn.addEventListener("click", async () => {
       showStatus(addByIdStatus, "Station introuvable.", "error");
       return;
     }
-    addStationId(id);
-    showStatus(addByIdStatus, `Station ajoutee : ${station.adresse || station.ville || id}`, "success");
+    // Try to fetch station name (best-effort)
+    let name = null;
+    try { name = await fetchStationName(id); } catch {}
+    addStationId(id, name);
+    showStatus(addByIdStatus, `Station ajoutee : ${name || station.adresse || station.ville || id}`, "success");
     stationIdInput.value = "";
     renderTrackedStations();
   } catch (err) {
@@ -119,18 +138,23 @@ addByIdBtn.addEventListener("click", async () => {
 });
 
 // --- Add / remove stations ---
-function addStation(id, btn) {
+function addStation(id, btn, name) {
   btn.disabled = true;
   btn.textContent = "Ajoutee";
-  addStationId(id);
+  addStationId(id, name);
   renderTrackedStations();
 }
 
-function addStationId(id) {
+function addStationId(id, name) {
   const ids = storageGet("stationIds") || [];
   if (!ids.map(String).includes(String(id))) {
     ids.push(Number(id));
     storageSet("stationIds", ids);
+  }
+  if (name) {
+    const names = storageGet("stationNames") || {};
+    names[String(id)] = name;
+    storageSet("stationNames", names);
   }
 }
 
@@ -217,6 +241,29 @@ function renderTrackedStations() {
     item.appendChild(btn);
 
     trackedStations.appendChild(item);
+  }
+}
+
+// --- Auto-fetch missing station names (best-effort) ---
+async function autoFetchMissingNames() {
+  const ids = storageGet("stationIds") || [];
+  const names = storageGet("stationNames") || {};
+  const missing = ids.filter(id => !names[String(id)]);
+  if (missing.length === 0) return;
+
+  let updated = false;
+  await Promise.all(missing.map(id =>
+    fetchStationName(id).then(name => {
+      if (name) {
+        names[String(id)] = name;
+        updated = true;
+      }
+    }).catch(() => {})
+  ));
+
+  if (updated) {
+    storageSet("stationNames", names);
+    renderTrackedStations();
   }
 }
 

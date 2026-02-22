@@ -1,7 +1,8 @@
 import { fetchStationsByIds } from "./api.js";
 import {
   FUEL_TYPES, FUEL_KEYS, formatPrice, formatDate,
-  getPriceChangeDirection, storageGet, storageSet, escapeHtml
+  getPriceChangeDirection, storageGet, storageSet, escapeHtml,
+  appendPriceHistory, roundPrice
 } from "./utils.js";
 
 const content = document.getElementById("content");
@@ -67,6 +68,22 @@ async function fetchAndRender() {
     storageSet("lastStationData", newStationData);
     storageSet("lastCheck", Date.now());
 
+    // Append to price history
+    const history = storageGet("priceHistory") || {};
+    for (const station of stations) {
+      const id = String(station.id);
+      for (const key of FUEL_KEYS) {
+        const price = station[`${key}_prix`];
+        const maj = station[`${key}_maj`];
+        if (price != null) {
+          const cleaned = maj ? String(maj).replace(/[+-]\d{2}:\d{2}$/, "").replace(/Z$/, "") : null;
+          const ts = cleaned ? new Date(cleaned).getTime() : Date.now();
+          appendPriceHistory(history, id, key, price, ts);
+        }
+      }
+    }
+    storageSet("priceHistory", history);
+
     renderFromCache();
   } catch (err) {
     console.error("Fetch error:", err);
@@ -124,19 +141,22 @@ function renderFromCache() {
     return 0;
   });
 
+  const history = storageGet("priceHistory") || {};
+
   content.innerHTML = "";
   for (const id of sortedIds) {
     const station = stationData[String(id)];
     const stationPrices = prices[String(id)] || {};
     const oldStationPrices = prevPrices[String(id)] || {};
     const isRef = String(id) === refId;
+    const stationHistory = history[String(id)] || {};
     content.appendChild(
-      buildStationCard(id, station, stationPrices, oldStationPrices, names[String(id)], isRef, refPrices, minPrices)
+      buildStationCard(id, station, stationPrices, oldStationPrices, names[String(id)], isRef, refPrices, minPrices, stationHistory)
     );
   }
 }
 
-function buildStationCard(id, station, stationPrices, oldStationPrices, name, isRef, refPrices, minPrices) {
+function buildStationCard(id, station, stationPrices, oldStationPrices, name, isRef, refPrices, minPrices, stationHistory) {
   const card = document.createElement("div");
   card.className = "station-card" + (isRef ? " station-ref" : "");
 
@@ -203,6 +223,18 @@ function buildStationCard(id, station, stationPrices, oldStationPrices, name, is
     }
     tr.appendChild(tdArrow);
 
+    // Sparkline
+    const tdSpark = document.createElement("td");
+    tdSpark.className = "fuel-spark";
+    const points = (stationHistory && stationHistory[key]) || [];
+    if (points.length >= 2) {
+      const svg = buildSparkline(points, fuel.color);
+      const stationName = name || station?.adresse || `Station ${id}`;
+      tdSpark.appendChild(svg);
+      tdSpark.addEventListener("click", () => showHistoryModal(stationName, fuel.label, fuel.color, points));
+    }
+    tr.appendChild(tdSpark);
+
     // Date
     const tdDate = document.createElement("td");
     tdDate.className = "fuel-date";
@@ -214,4 +246,187 @@ function buildStationCard(id, station, stationPrices, oldStationPrices, name, is
 
   card.appendChild(table);
   return card;
+}
+
+// --- Sparkline SVG ---
+function buildSparkline(points, color, width = 60, height = 20) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("width", width);
+  svg.setAttribute("height", height);
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  const prices = points.map(pt => pt.p);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 0.001;
+  const pad = 2;
+
+  const coords = points.map((pt, i) => {
+    const x = points.length === 1 ? width / 2 : (i / (points.length - 1)) * (width - pad * 2) + pad;
+    const y = height - pad - ((pt.p - min) / range) * (height - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  const polyline = document.createElementNS(ns, "polyline");
+  polyline.setAttribute("points", coords.join(" "));
+  polyline.setAttribute("fill", "none");
+  polyline.setAttribute("stroke", color);
+  polyline.setAttribute("stroke-width", "1.5");
+  polyline.setAttribute("stroke-linecap", "round");
+  polyline.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(polyline);
+
+  // Last point dot
+  const last = points[points.length - 1];
+  const lastX = (width - pad * 2) + pad;
+  const lastY = height - pad - ((last.p - min) / range) * (height - pad * 2);
+  const dot = document.createElementNS(ns, "circle");
+  dot.setAttribute("cx", lastX.toFixed(1));
+  dot.setAttribute("cy", lastY.toFixed(1));
+  dot.setAttribute("r", "2");
+  dot.setAttribute("fill", color);
+  svg.appendChild(dot);
+
+  return svg;
+}
+
+// --- History Modal ---
+function showHistoryModal(stationName, fuelLabel, fuelColor, points) {
+  // Remove existing modal
+  const existing = document.querySelector(".history-modal");
+  if (existing) existing.remove();
+
+  const modal = document.createElement("div");
+  modal.className = "history-modal";
+
+  const prices = points.map(pt => pt.p);
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const lastPrice = prices[prices.length - 1];
+
+  const content = document.createElement("div");
+  content.className = "history-modal-content";
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "history-modal-header";
+  header.innerHTML = `
+    <button class="history-close">&times;</button>
+    <div class="history-title">${escapeHtml(stationName)}</div>
+    <div class="history-subtitle"><span class="fuel-dot" style="background:${fuelColor}"></span>${escapeHtml(fuelLabel)} &mdash; ${points.length} releves</div>
+  `;
+  content.appendChild(header);
+
+  // Chart
+  const chartW = 340;
+  const chartH = 180;
+  const chartPadL = 50;
+  const chartPadR = 10;
+  const chartPadT = 10;
+  const chartPadB = 30;
+  const plotW = chartW - chartPadL - chartPadR;
+  const plotH = chartH - chartPadT - chartPadB;
+
+  const range = maxPrice - minPrice || 0.001;
+  const niceMin = Math.floor(minPrice * 1000 - 5) / 1000;
+  const niceMax = Math.ceil(maxPrice * 1000 + 5) / 1000;
+  const niceRange = niceMax - niceMin || 0.001;
+
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", `0 0 ${chartW} ${chartH}`);
+  svg.setAttribute("class", "history-chart");
+
+  // Y-axis labels & grid
+  const ySteps = 4;
+  for (let i = 0; i <= ySteps; i++) {
+    const val = niceMin + (niceRange / ySteps) * i;
+    const y = chartPadT + plotH - (i / ySteps) * plotH;
+
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", chartPadL);
+    line.setAttribute("x2", chartW - chartPadR);
+    line.setAttribute("y1", y.toFixed(1));
+    line.setAttribute("y2", y.toFixed(1));
+    line.setAttribute("stroke", "#eee");
+    line.setAttribute("stroke-width", "1");
+    svg.appendChild(line);
+
+    const text = document.createElementNS(ns, "text");
+    text.setAttribute("x", chartPadL - 5);
+    text.setAttribute("y", (y + 4).toFixed(1));
+    text.setAttribute("text-anchor", "end");
+    text.setAttribute("class", "chart-label");
+    text.textContent = val.toFixed(3);
+    svg.appendChild(text);
+  }
+
+  // X-axis labels (a few date markers)
+  const xLabels = Math.min(points.length, 5);
+  for (let i = 0; i < xLabels; i++) {
+    const idx = Math.round((i / (xLabels - 1)) * (points.length - 1));
+    const pt = points[idx];
+    const x = chartPadL + (idx / (points.length - 1)) * plotW;
+    const d = new Date(pt.t);
+    const label = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+    const text = document.createElementNS(ns, "text");
+    text.setAttribute("x", x.toFixed(1));
+    text.setAttribute("y", (chartH - 5).toFixed(1));
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("class", "chart-label");
+    text.textContent = label;
+    svg.appendChild(text);
+  }
+
+  // Line
+  const coords = points.map((pt, i) => {
+    const x = chartPadL + (i / (points.length - 1)) * plotW;
+    const y = chartPadT + plotH - ((pt.p - niceMin) / niceRange) * plotH;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  const polyline = document.createElementNS(ns, "polyline");
+  polyline.setAttribute("points", coords.join(" "));
+  polyline.setAttribute("fill", "none");
+  polyline.setAttribute("stroke", fuelColor);
+  polyline.setAttribute("stroke-width", "2");
+  polyline.setAttribute("stroke-linecap", "round");
+  polyline.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(polyline);
+
+  // Points
+  points.forEach((pt, i) => {
+    const x = chartPadL + (i / (points.length - 1)) * plotW;
+    const y = chartPadT + plotH - ((pt.p - niceMin) / niceRange) * plotH;
+    const circle = document.createElementNS(ns, "circle");
+    circle.setAttribute("cx", x.toFixed(1));
+    circle.setAttribute("cy", y.toFixed(1));
+    circle.setAttribute("r", points.length > 30 ? "2" : "3");
+    circle.setAttribute("fill", fuelColor);
+    svg.appendChild(circle);
+  });
+
+  content.appendChild(svg);
+
+  // Stats
+  const stats = document.createElement("div");
+  stats.className = "history-stats";
+  stats.innerHTML = `
+    <div><span class="stat-label">Min</span><br><strong>${formatPrice(minPrice)}</strong></div>
+    <div><span class="stat-label">Max</span><br><strong>${formatPrice(maxPrice)}</strong></div>
+    <div><span class="stat-label">Actuel</span><br><strong>${formatPrice(lastPrice)}</strong></div>
+  `;
+  content.appendChild(stats);
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  // Close handlers
+  const closeBtn = content.querySelector(".history-close");
+  closeBtn.addEventListener("click", () => modal.remove());
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.remove();
+  });
 }

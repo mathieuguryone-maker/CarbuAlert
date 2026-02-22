@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a73e8">
+  <title>Carbu Alert - Carte</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <div class="header">
+    <h1>
+      <a href="index.html" class="back-arrow">&#x2190;</a>
+      Carte
+    </h1>
+    <div class="header-actions">
+      <select id="fuelSelect" class="fuel-select">
+        <option value="gazole">Gazole</option>
+        <option value="sp95">SP95</option>
+        <option value="sp98">SP98</option>
+        <option value="e10">E10</option>
+        <option value="e85">E85</option>
+        <option value="gplc">GPLc</option>
+      </select>
+    </div>
+  </div>
+  <div id="map" class="map-container"></div>
+  <script type="module" src="map.js"></script>
+</body>
+</html>

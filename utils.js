@@ -74,3 +74,39 @@ export function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
+
+// --- Price history helpers ---
+
+const HISTORY_MAX_DAYS = 90;
+
+/**
+ * Append a price point to the history object (mutates in place).
+ * Deduplicates by day (keeps last value per day) and prunes entries older than 90 days.
+ */
+export function appendPriceHistory(history, stationId, fuelKey, price, timestamp) {
+  const id = String(stationId);
+  if (!history[id]) history[id] = {};
+  if (!history[id][fuelKey]) history[id][fuelKey] = [];
+
+  const points = history[id][fuelKey];
+  const ts = typeof timestamp === "number" ? timestamp : new Date(timestamp).getTime();
+  if (isNaN(ts)) return;
+
+  // Day key for deduplication (YYYY-MM-DD)
+  const dayKey = new Date(ts).toISOString().slice(0, 10);
+
+  // Replace existing point for the same day, or append
+  const existingIdx = points.findIndex(pt => new Date(pt.t).toISOString().slice(0, 10) === dayKey);
+  if (existingIdx !== -1) {
+    points[existingIdx] = { t: ts, p: roundPrice(price) };
+  } else {
+    points.push({ t: ts, p: roundPrice(price) });
+  }
+
+  // Sort by timestamp
+  points.sort((a, b) => a.t - b.t);
+
+  // Prune older than 90 days
+  const cutoff = Date.now() - HISTORY_MAX_DAYS * 24 * 60 * 60 * 1000;
+  history[id][fuelKey] = points.filter(pt => pt.t >= cutoff);
+}

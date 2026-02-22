@@ -1,10 +1,12 @@
-const CACHE_NAME = "carbu-alert-v1";
+const CACHE_NAME = "carbu-alert-v2";
 const STATIC_ASSETS = [
   "./index.html",
   "./settings.html",
+  "./map.html",
   "./app.css",
   "./app.js",
   "./settings.js",
+  "./map.js",
   "./api.js",
   "./utils.js",
   "./manifest.webmanifest",
