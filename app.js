@@ -139,6 +139,9 @@ function renderFromCache() {
     span.textContent = `Derniere verification : ${formatDate(new Date(lastCheck).toISOString())}`;
   }
 
+  const refContainer = document.getElementById("refCardSticky");
+  refContainer.innerHTML = "";
+
   if (ids.length === 0) {
     content.innerHTML = `
       <p class="empty-msg">
@@ -181,9 +184,12 @@ function renderFromCache() {
     const oldStationPrices = prevPrices[String(id)] || {};
     const isRef = String(id) === refId;
     const stationHistory = history[String(id)] || {};
-    content.appendChild(
-      buildStationCard(id, station, stationPrices, oldStationPrices, names[String(id)], isRef, refPrices, minPrices, stationHistory)
-    );
+    const card = buildStationCard(id, station, stationPrices, oldStationPrices, names[String(id)], isRef, refPrices, minPrices, stationHistory);
+    if (isRef) {
+      refContainer.appendChild(card);
+    } else {
+      content.appendChild(card);
+    }
   }
 }
 
