@@ -106,6 +106,43 @@ body {
   text-decoration: none;
 }
 
+/* --- Test notification buttons --- */
+
+.last-check {
+  display: flex;
+  align-items: center;
+}
+
+.test-btns {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.test-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+}
+
+.test-btn:active {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.test-btn.test-ref {
+  font-size: 14px;
+}
+
+.test-notif-btn {
+  font-size: 13px;
+  padding: 8px 14px;
+}
+
 /* --- Station cards --- */
 
 .station-card {

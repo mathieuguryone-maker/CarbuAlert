@@ -8,6 +8,8 @@ import {
 const content = document.getElementById("content");
 const lastCheckEl = document.getElementById("lastCheck");
 const refreshBtn = document.getElementById("refreshBtn");
+const testRegularBtn = document.getElementById("testRegularBtn");
+const testRefBtn = document.getElementById("testRefBtn");
 
 // --- Service Worker ---
 if ("serviceWorker" in navigator) {
@@ -19,6 +21,35 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderFromCache();
   await fetchAndRender();
 });
+
+// --- Test notifications ---
+testRegularBtn.addEventListener("click", () => sendTestNotif("regular"));
+testRefBtn.addEventListener("click", () => sendTestNotif("alert"));
+
+async function sendTestNotif(type) {
+  const topic = storageGet("ntfyTopic");
+  if (!topic) {
+    alert("Configurez d'abord votre topic ntfy dans les Parametres.");
+    return;
+  }
+  const isAlert = type === "alert";
+  try {
+    const resp = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+      method: "POST",
+      headers: {
+        "Title": isAlert ? "CarbuAlert - Moins cher que votre ref !" : "CarbuAlert - Changement de prix",
+        "Priority": isAlert ? "5" : "3",
+        "Tags": isAlert ? "warning,fuelpump" : "fuelpump"
+      },
+      body: isAlert
+        ? "\u2b07 Gazole: 1.549 < ref 1.589 (Station Test)"
+        : "\u2b07 Gazole: 1.589 \u2192 1.549 (Station Test)"
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  } catch (err) {
+    alert("Erreur d'envoi : " + err.message);
+  }
+}
 
 // --- Refresh ---
 refreshBtn.addEventListener("click", async () => {

@@ -20,6 +20,11 @@ const badgeFuel = document.getElementById("badgeFuel");
 const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 const settingsStatus = document.getElementById("settingsStatus");
 
+const ntfyTopicInput = document.getElementById("ntfyTopic");
+const saveNtfyBtn = document.getElementById("saveNtfyBtn");
+const ntfyStatus = document.getElementById("ntfyStatus");
+const testNtfyStatus = document.getElementById("testNtfyStatus");
+
 // --- State ---
 let debounceTimer = null;
 
@@ -271,6 +276,10 @@ async function autoFetchMissingNames() {
 function loadSettings() {
   const s = storageGet("settings") || DEFAULT_SETTINGS;
   badgeFuel.value = s.badgeFuelType;
+
+  // Load ntfy topic
+  const topic = storageGet("ntfyTopic") || "";
+  ntfyTopicInput.value = topic;
 }
 
 saveSettingsBtn.addEventListener("click", () => {
@@ -281,6 +290,51 @@ saveSettingsBtn.addEventListener("click", () => {
   showStatus(settingsStatus, "Preferences enregistrees.", "success");
   setTimeout(() => showStatus(settingsStatus, "", ""), 2000);
 });
+
+// --- Ntfy ---
+saveNtfyBtn.addEventListener("click", () => {
+  const topic = ntfyTopicInput.value.trim();
+  if (!topic) {
+    storageRemove("ntfyTopic");
+    showStatus(ntfyStatus, "Topic supprime.", "success");
+  } else {
+    storageSet("ntfyTopic", topic);
+    showStatus(ntfyStatus, "Topic enregistre.", "success");
+  }
+  setTimeout(() => showStatus(ntfyStatus, "", ""), 2000);
+});
+
+// --- Test notifications from settings ---
+document.getElementById("testRegularBtn").addEventListener("click", () => sendTestNotif("regular"));
+document.getElementById("testRefBtn").addEventListener("click", () => sendTestNotif("alert"));
+
+async function sendTestNotif(type) {
+  const topic = storageGet("ntfyTopic");
+  if (!topic) {
+    showStatus(testNtfyStatus, "Enregistrez d'abord un topic ntfy ci-dessus.", "error");
+    return;
+  }
+  const isAlert = type === "alert";
+  showStatus(testNtfyStatus, "Envoi en cours...", "");
+  try {
+    const resp = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+      method: "POST",
+      headers: {
+        "Title": isAlert ? "CarbuAlert - Moins cher que votre ref !" : "CarbuAlert - Changement de prix",
+        "Priority": isAlert ? "5" : "3",
+        "Tags": isAlert ? "warning,fuelpump" : "fuelpump"
+      },
+      body: isAlert
+        ? "\u2b07 Gazole: 1.549 < ref 1.589 (Station Test)"
+        : "\u2b07 Gazole: 1.589 \u2192 1.549 (Station Test)"
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    showStatus(testNtfyStatus, "Notification envoyee !", "success");
+  } catch (err) {
+    showStatus(testNtfyStatus, `Erreur : ${err.message}`, "error");
+  }
+  setTimeout(() => showStatus(testNtfyStatus, "", ""), 3000);
+}
 
 // --- Helpers ---
 function showStatus(el, msg, cls) {

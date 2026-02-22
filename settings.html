@@ -64,6 +64,28 @@
       <button id="saveSettingsBtn">Enregistrer</button>
       <div id="settingsStatus" class="status-msg"></div>
     </section>
+
+    <!-- Notifications -->
+    <section class="section">
+      <h2>Notifications (ntfy.sh)</h2>
+      <p style="font-size:12px;color:#666;margin-bottom:10px;">
+        Entrez votre topic ntfy pour recevoir des alertes push sur votre telephone.
+        Installez l'app <a href="https://ntfy.sh" target="_blank" style="color:#1a73e8">ntfy</a> et abonnez-vous au meme topic.
+      </p>
+      <div class="search-row">
+        <input type="text" id="ntfyTopic" placeholder="ex: carbu-alert-abc123">
+        <button id="saveNtfyBtn">Enregistrer</button>
+      </div>
+      <div id="ntfyStatus" class="status-msg"></div>
+      <div style="margin-top:14px; padding-top:14px; border-top:1px solid #eee;">
+        <h2>Tester les notifications</h2>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button id="testRegularBtn" class="test-notif-btn">&#x1F514; Alerte prix</button>
+          <button id="testRefBtn" class="test-notif-btn danger">&#x1F6A8; Alerte ref</button>
+        </div>
+        <div id="testNtfyStatus" class="status-msg"></div>
+      </div>
+    </section>
   </div>
 
   <script type="module" src="settings.js"></script>
