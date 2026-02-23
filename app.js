@@ -254,17 +254,18 @@ function buildStationCard(id, station, stationPrices, oldStationPrices, name, is
     }
     tr.appendChild(tdArrow);
 
-    // Sparkline
-    const tdSpark = document.createElement("td");
-    tdSpark.className = "fuel-spark";
+    // History icon
     const points = (stationHistory && stationHistory[key]) || [];
     if (points.length >= 2) {
-      const svg = buildSparkline(points, fuel.color);
+      const tdChart = document.createElement("td");
+      tdChart.className = "fuel-chart-btn";
+      tdChart.innerHTML = "\u{1F4C8}";
       const stationName = name || station?.adresse || `Station ${id}`;
-      tdSpark.appendChild(svg);
-      tdSpark.addEventListener("click", () => showHistoryModal(stationName, fuel.label, fuel.color, points));
+      tdChart.addEventListener("click", () => showHistoryModal(stationName, fuel.label, fuel.color, points));
+      tr.appendChild(tdChart);
+    } else {
+      tr.appendChild(document.createElement("td"));
     }
-    tr.appendChild(tdSpark);
 
     // Date
     const tdDate = document.createElement("td");
