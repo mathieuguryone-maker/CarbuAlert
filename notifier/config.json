@@ -1,9 +1,9 @@
 {
-  "stationIds": [75015011],
+  "stationIds": [30820002, 30000012, 30980002, 30420002, 30250001],
   "stationNames": {
-    "75015011": "Ma station"
+    "30820002": "INTERMARCHE CAVEIRAC"
   },
-  "referenceStationId": null,
+  "referenceStationId": 30820002,
   "badgeFuelType": "gazole",
   "checkIntervalMinutes": 10
 }
