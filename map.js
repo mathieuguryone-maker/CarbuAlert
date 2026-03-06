@@ -2,16 +2,19 @@ import {
   FUEL_TYPES, FUEL_KEYS, formatPrice,
   storageGet, escapeHtml
 } from "./utils.js";
+import { fetchNearbyStations } from "./api.js";
 
 const fuelSelect = document.getElementById("fuelSelect");
+const nearMeBtn = document.getElementById("nearMeBtn");
 
 // --- State ---
 let map;
-let markers = []; // { marker, stationId, prices, isRef }
+let markers = []; // { marker, stationId, prices, isRef, isNearby }
+let userMarker = null;
+let nearbyMode = false;
 
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
-  // Restore last fuel selection
   const settings = storageGet("settings");
   if (settings && settings.badgeFuelType) {
     fuelSelect.value = settings.badgeFuelType;
@@ -19,17 +22,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initMap();
   fuelSelect.addEventListener("change", updateMarkerLabels);
+  nearMeBtn.addEventListener("click", handleNearMe);
 });
 
 function initMap() {
-  const stationData = storageGet("lastStationData") || {};
-  const prices = storageGet("lastPrices") || {};
-  const names = storageGet("stationNames") || {};
-  const ids = storageGet("stationIds") || [];
-  const refId = storageGet("referenceStationId");
-  const refIdStr = refId ? String(refId) : null;
-
-  // Init Leaflet map
   map = L.map("map", {
     zoomControl: true,
     attributionControl: true
@@ -40,15 +36,25 @@ function initMap() {
     maxZoom: 18
   }).addTo(map);
 
+  showTrackedStations();
+}
+
+function showTrackedStations() {
+  const stationData = storageGet("lastStationData") || {};
+  const prices = storageGet("lastPrices") || {};
+  const names = storageGet("stationNames") || {};
+  const ids = storageGet("stationIds") || [];
+  const refId = storageGet("referenceStationId");
+  const refIdStr = refId ? String(refId) : null;
+
+  clearMarkers();
   const bounds = [];
-  const selectedFuel = fuelSelect.value;
 
   for (const id of ids) {
     const idStr = String(id);
     const station = stationData[idStr];
     if (!station) continue;
 
-    // Coordinates are in station.geom (not latitude/longitude which are scaled)
     const geom = station.geom;
     if (!geom || geom.lat == null || geom.lon == null) continue;
     const lat = parseFloat(geom.lat);
@@ -59,26 +65,10 @@ function initMap() {
     const stationPrices = prices[idStr] || {};
     const name = names[idStr];
 
-    // Build popup content
-    const popupHtml = buildPopup(idStr, station, stationPrices, name, isRef);
-
-    // Build marker
-    const priceLabel = getPriceLabel(stationPrices, selectedFuel);
-    const icon = L.divIcon({
-      className: "price-marker-wrapper",
-      html: `<div class="price-marker${isRef ? " ref" : ""}" data-station="${idStr}">${priceLabel}</div>`,
-      iconSize: null,
-      iconAnchor: [0, 0]
-    });
-
-    const marker = L.marker([lat, lng], { icon }).addTo(map);
-    marker.bindPopup(popupHtml, { maxWidth: 280, className: "station-popup" });
-
-    markers.push({ marker, stationId: idStr, prices: stationPrices, isRef });
+    addStationMarker(idStr, station, stationPrices, name, isRef, lat, lng, false);
     bounds.push([lat, lng]);
   }
 
-  // Fit bounds
   if (bounds.length > 0) {
     if (bounds.length === 1) {
       map.setView(bounds[0], 14);
@@ -87,6 +77,138 @@ function initMap() {
     }
   }
 }
+
+function addStationMarker(idStr, station, stationPrices, name, isRef, lat, lng, isNearby) {
+  const selectedFuel = fuelSelect.value;
+  const priceLabel = getPriceLabel(stationPrices, selectedFuel);
+  const popupHtml = buildPopup(idStr, station, stationPrices, name, isRef);
+
+  const refClass = isRef ? " ref" : "";
+  const nearbyClass = isNearby ? " nearby" : "";
+  const icon = L.divIcon({
+    className: "price-marker-wrapper",
+    html: `<div class="price-marker${refClass}${nearbyClass}" data-station="${idStr}">${priceLabel}</div>`,
+    iconSize: null,
+    iconAnchor: [0, 0]
+  });
+
+  const marker = L.marker([lat, lng], { icon }).addTo(map);
+  marker.bindPopup(popupHtml, { maxWidth: 280, className: "station-popup" });
+
+  markers.push({ marker, stationId: idStr, prices: stationPrices, isRef, isNearby });
+}
+
+// --- Near me ---
+async function handleNearMe() {
+  nearMeBtn.disabled = true;
+  nearMeBtn.textContent = "\u23F3";
+
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000
+      });
+    });
+
+    const { latitude, longitude } = pos.coords;
+
+    // Show user position
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.circleMarker([latitude, longitude], {
+      radius: 10,
+      fillColor: "#4285f4",
+      fillOpacity: 1,
+      color: "#fff",
+      weight: 3
+    }).addTo(map).bindPopup("Vous \u00eates ici");
+
+    // Fetch nearby stations
+    const stations = await fetchNearbyStations(latitude, longitude, 10);
+
+    if (stations.length === 0) {
+      alert("Aucune station trouvee dans un rayon de 10 km.");
+      return;
+    }
+
+    // Merge with tracked stations
+    clearMarkers();
+
+    const trackedIds = new Set((storageGet("stationIds") || []).map(String));
+    const names = storageGet("stationNames") || {};
+    const refId = storageGet("referenceStationId");
+    const refIdStr = refId ? String(refId) : null;
+    const bounds = [[latitude, longitude]];
+
+    for (const station of stations) {
+      const idStr = String(station.id);
+      const geom = station.geom;
+      if (!geom || geom.lat == null || geom.lon == null) continue;
+      const lat = parseFloat(geom.lat);
+      const lng = parseFloat(geom.lon);
+      if (isNaN(lat) || isNaN(lng)) continue;
+
+      const stationPrices = {};
+      for (const key of FUEL_KEYS) {
+        const prixKey = `${key}_prix`;
+        const majKey = `${key}_maj`;
+        if (station[prixKey] != null) {
+          stationPrices[prixKey] = station[prixKey];
+          stationPrices[majKey] = station[majKey];
+        }
+      }
+
+      const isRef = idStr === refIdStr;
+      const isTracked = trackedIds.has(idStr);
+      const name = names[idStr] || null;
+
+      addStationMarker(idStr, station, stationPrices, name, isRef, lat, lng, !isTracked);
+      bounds.push([lat, lng]);
+    }
+
+    // Highlight cheapest
+    highlightCheapest();
+
+    map.fitBounds(bounds, { padding: [30, 30] });
+    nearbyMode = true;
+
+  } catch (err) {
+    if (err.code === 1) {
+      alert("Geolocalisation refusee. Activez la localisation dans les parametres.");
+    } else {
+      alert("Erreur de geolocalisation : " + err.message);
+    }
+  } finally {
+    nearMeBtn.disabled = false;
+    nearMeBtn.textContent = "\uD83D\uDCCD";
+  }
+}
+
+function highlightCheapest() {
+  const selectedFuel = fuelSelect.value;
+  const prixKey = `${selectedFuel}_prix`;
+
+  let cheapestId = null;
+  let cheapestPrice = Infinity;
+
+  for (const { stationId, prices } of markers) {
+    const price = prices[prixKey];
+    if (price != null && price < cheapestPrice) {
+      cheapestPrice = price;
+      cheapestId = stationId;
+    }
+  }
+
+  // Update marker styles
+  for (const { stationId } of markers) {
+    const el = document.querySelector(`.price-marker[data-station="${stationId}"]`);
+    if (el) {
+      el.classList.toggle("cheapest", stationId === cheapestId);
+    }
+  }
+}
+
+// --- Helpers ---
 
 function getPriceLabel(stationPrices, fuelKey) {
   const price = stationPrices[`${fuelKey}_prix`];
@@ -125,11 +247,17 @@ function buildPopup(id, station, stationPrices, name, isRef) {
 
 function updateMarkerLabels() {
   const selectedFuel = fuelSelect.value;
-  for (const { stationId, prices, isRef } of markers) {
+  for (const { stationId, prices } of markers) {
     const priceLabel = getPriceLabel(prices, selectedFuel);
     const el = document.querySelector(`.price-marker[data-station="${stationId}"]`);
     if (el) {
       el.textContent = priceLabel;
     }
   }
+  if (nearbyMode) highlightCheapest();
+}
+
+function clearMarkers() {
+  for (const { marker } of markers) map.removeLayer(marker);
+  markers = [];
 }

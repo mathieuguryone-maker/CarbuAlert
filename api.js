@@ -45,6 +45,14 @@ export async function searchStations(query, type) {
   return data.results || [];
 }
 
+export async function fetchNearbyStations(lat, lon, radiusKm = 10) {
+  const data = await apiFetch({
+    where: `within_distance(geom, geom'POINT(${lon} ${lat})', ${radiusKm}km)`,
+    limit: "50"
+  });
+  return data.results || [];
+}
+
 export async function fetchSingleStation(id) {
   const data = await apiFetch({
     where: `id=${id}`,
