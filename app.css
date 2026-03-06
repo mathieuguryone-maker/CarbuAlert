@@ -143,15 +143,6 @@ body {
   padding: 8px 14px;
 }
 
-/* --- Sticky reference card --- */
-
-.station-card.station-ref {
-  position: sticky;
-  top: calc(max(12px, env(safe-area-inset-top)) + 48px);
-  z-index: 5;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
 /* --- Station cards --- */
 
 .station-card {
