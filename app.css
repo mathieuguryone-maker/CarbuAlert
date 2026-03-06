@@ -681,6 +681,19 @@ button.add-btn:active { background: #2d8f47; }
   border-bottom: none;
 }
 
+.popup-navigate {
+  display: block;
+  margin-top: 8px;
+  padding: 6px 0;
+  text-align: center;
+  background: #1a73e8;
+  color: #fff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* Near me button */
 
 .near-me-btn {

@@ -81,7 +81,7 @@ function showTrackedStations() {
 function addStationMarker(idStr, station, stationPrices, name, isRef, lat, lng, isNearby) {
   const selectedFuel = fuelSelect.value;
   const priceLabel = getPriceLabel(stationPrices, selectedFuel);
-  const popupHtml = buildPopup(idStr, station, stationPrices, name, isRef);
+  const popupHtml = buildPopup(idStr, station, stationPrices, name, isRef, lat, lng);
 
   const refClass = isRef ? " ref" : "";
   const nearbyClass = isNearby ? " nearby" : "";
@@ -216,7 +216,7 @@ function getPriceLabel(stationPrices, fuelKey) {
   return Number(price).toFixed(3);
 }
 
-function buildPopup(id, station, stationPrices, name, isRef) {
+function buildPopup(id, station, stationPrices, name, isRef, lat, lng) {
   const refBadge = isRef ? '<span class="popup-ref-badge">REF</span> ' : "";
   const stationName = name || station.adresse || `Station ${id}`;
 
@@ -236,11 +236,14 @@ function buildPopup(id, station, stationPrices, name, isRef) {
     fuelsHtml = '<tr><td colspan="2" style="color:#999">Aucun prix disponible</td></tr>';
   }
 
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
   return `
     <div class="popup-content">
       <div class="popup-title">${refBadge}${escapeHtml(stationName)}</div>
       <div class="popup-address">${escapeHtml(station.adresse || "")} - ${escapeHtml(station.cp || "")} ${escapeHtml(station.ville || "")}</div>
       <table class="popup-prices">${fuelsHtml}</table>
+      <a href="${mapsUrl}" target="_blank" class="popup-navigate">Y aller \u2192</a>
     </div>
   `;
 }
