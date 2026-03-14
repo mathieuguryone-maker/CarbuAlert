@@ -1,8 +1,8 @@
 import {
   FUEL_TYPES, FUEL_KEYS, formatPrice,
-  storageGet, escapeHtml
+  storageGet, storageSet, escapeHtml
 } from "./utils.js";
-import { fetchNearbyStations } from "./api.js";
+import { fetchNearbyStations, fetchStationName } from "./api.js";
 
 const fuelSelect = document.getElementById("fuelSelect");
 const nearMeBtn = document.getElementById("nearMeBtn");
@@ -81,7 +81,7 @@ function showTrackedStations() {
 function addStationMarker(idStr, station, stationPrices, name, isRef, lat, lng, isNearby) {
   const selectedFuel = fuelSelect.value;
   const priceLabel = getPriceLabel(stationPrices, selectedFuel);
-  const popupHtml = buildPopup(idStr, station, stationPrices, name, isRef, lat, lng);
+  const popupHtml = buildPopup(idStr, station, stationPrices, name, isRef, lat, lng, isNearby);
 
   const refClass = isRef ? " ref" : "";
   const nearbyClass = isNearby ? " nearby" : "";
@@ -216,9 +216,11 @@ function getPriceLabel(stationPrices, fuelKey) {
   return Number(price).toFixed(3);
 }
 
-function buildPopup(id, station, stationPrices, name, isRef, lat, lng) {
+function buildPopup(id, station, stationPrices, name, isRef, lat, lng, isNearby) {
   const refBadge = isRef ? '<span class="popup-ref-badge">REF</span> ' : "";
   const stationName = name || station.adresse || `Station ${id}`;
+  const trackedIds = new Set((storageGet("stationIds") || []).map(String));
+  const isTracked = trackedIds.has(String(id));
 
   let fuelsHtml = "";
   for (const key of FUEL_KEYS) {
@@ -237,16 +239,48 @@ function buildPopup(id, station, stationPrices, name, isRef, lat, lng) {
   }
 
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  const trackBtn = (isNearby && !isTracked)
+    ? `<button class="popup-track-btn" data-track-id="${id}" onclick="window._trackStation('${id}', this)">+ Suivre</button>`
+    : "";
 
   return `
     <div class="popup-content">
       <div class="popup-title">${refBadge}${escapeHtml(stationName)}</div>
       <div class="popup-address">${escapeHtml(station.adresse || "")} - ${escapeHtml(station.cp || "")} ${escapeHtml(station.ville || "")}</div>
       <table class="popup-prices">${fuelsHtml}</table>
-      <a href="${mapsUrl}" target="_blank" class="popup-navigate">Y aller \u2192</a>
+      <div class="popup-actions">
+        <a href="${mapsUrl}" onclick="window.open(this.href);return false;" class="popup-navigate">Y aller \u2192</a>
+        ${trackBtn}
+      </div>
     </div>
   `;
 }
+
+// --- Track station from map popup ---
+window._trackStation = async function(id, btn) {
+  btn.disabled = true;
+  btn.textContent = "...";
+  try {
+    const ids = storageGet("stationIds") || [];
+    if (!ids.map(String).includes(String(id))) {
+      ids.push(Number(id));
+      storageSet("stationIds", ids);
+    }
+    // Fetch station name (best-effort)
+    let name = null;
+    try { name = await fetchStationName(id); } catch {}
+    if (name) {
+      const names = storageGet("stationNames") || {};
+      names[String(id)] = name;
+      storageSet("stationNames", names);
+    }
+    btn.textContent = "Suivie \u2713";
+    btn.classList.add("tracked");
+  } catch {
+    btn.disabled = false;
+    btn.textContent = "+ Suivre";
+  }
+};
 
 function updateMarkerLabels() {
   const selectedFuel = fuelSelect.value;
