@@ -6,6 +6,7 @@ import {
 } from "./utils.js";
 
 const content = document.getElementById("content");
+const refContainer = document.getElementById("refContainer");
 const lastCheckEl = document.getElementById("lastCheck");
 const refreshBtn = document.getElementById("refreshBtn");
 const testRegularBtn = document.getElementById("testRegularBtn");
@@ -174,6 +175,7 @@ function renderFromCache() {
 
   const history = storageGet("priceHistory") || {};
 
+  refContainer.innerHTML = "";
   content.innerHTML = "";
   for (const id of sortedIds) {
     const station = stationData[String(id)];
@@ -181,9 +183,12 @@ function renderFromCache() {
     const oldStationPrices = prevPrices[String(id)] || {};
     const isRef = String(id) === refId;
     const stationHistory = history[String(id)] || {};
-    content.appendChild(
-      buildStationCard(id, station, stationPrices, oldStationPrices, names[String(id)], isRef, refPrices, minPrices, stationHistory)
-    );
+    const card = buildStationCard(id, station, stationPrices, oldStationPrices, names[String(id)], isRef, refPrices, minPrices, stationHistory);
+    if (isRef) {
+      refContainer.appendChild(card);
+    } else {
+      content.appendChild(card);
+    }
   }
 }
 

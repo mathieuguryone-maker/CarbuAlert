@@ -15,6 +15,8 @@ body {
   background: #f5f5f5;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  display: flex;
+  flex-direction: column;
 }
 
 /* --- Header --- */
@@ -86,9 +88,29 @@ body {
   background: #eee;
 }
 
-/* --- Content --- */
+/* --- Ref container (fixed above scroll) --- */
+
+.ref-container {
+  flex-shrink: 0;
+  padding: 10px 10px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+
+.ref-container:empty {
+  display: none;
+}
+
+.ref-container .station-card {
+  margin-bottom: 0;
+}
+
+/* --- Content (scrollable) --- */
 
 .content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 10px;
   padding-bottom: max(10px, env(safe-area-inset-bottom));
 }

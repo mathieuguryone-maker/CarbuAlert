@@ -1,4 +1,4 @@
-const CACHE_NAME = "carbu-alert-v6";
+const CACHE_NAME = "carbu-alert-v7";
 const STATIC_ASSETS = [
   "./index.html",
   "./settings.html",
