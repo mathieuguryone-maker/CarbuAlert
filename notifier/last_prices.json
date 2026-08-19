@@ -16,15 +16,15 @@
     "e85_prix": 0.829
   },
   "30820002": {
-    "gazole_prix": 2.188,
+    "gazole_prix": 2.239,
     "sp98_prix": 2.069,
     "e10_prix": 1.999,
     "e85_prix": 0.829
   },
   "30250001": {
-    "gazole_prix": 2.199,
-    "sp98_prix": 2.099,
-    "e10_prix": 1.979,
+    "gazole_prix": 2.209,
+    "sp98_prix": 2.079,
+    "e10_prix": 1.969,
     "e85_prix": 0.829
   }
 }
