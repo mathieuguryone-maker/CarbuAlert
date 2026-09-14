@@ -1,8 +1,8 @@
 {
   "30420002": {
-    "gazole_prix": 2.299,
-    "sp98_prix": 2.199,
-    "e10_prix": 2.119
+    "gazole_prix": 2.358,
+    "sp98_prix": 2.233,
+    "e10_prix": 2.155
   },
   "30980002": {
     "gazole_prix": 2.299,
@@ -10,21 +10,21 @@
     "e10_prix": 2.119
   },
   "30000012": {
-    "gazole_prix": 2.319,
-    "sp98_prix": 2.259,
-    "e10_prix": 2.129,
+    "gazole_prix": 2.399,
+    "sp98_prix": 2.289,
+    "e10_prix": 2.159,
     "e85_prix": 0.839
   },
   "30820002": {
-    "gazole_prix": 2.319,
-    "sp98_prix": 2.179,
-    "e10_prix": 2.099,
+    "gazole_prix": 2.339,
+    "sp98_prix": 2.219,
+    "e10_prix": 2.129,
     "e85_prix": 0.849
   },
   "30250001": {
-    "gazole_prix": 2.309,
+    "gazole_prix": 2.359,
     "sp98_prix": 2.229,
-    "e10_prix": 2.099,
+    "e10_prix": 2.119,
     "e85_prix": 0.849
   }
 }
